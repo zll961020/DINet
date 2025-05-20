@@ -37,3 +37,9 @@ class Discriminator(nn.Module):
             out = feature_maps[-1]
         out = self.conv(out)
         return feature_maps, out
+
+
+if __name__ == "__main__":
+    source_channel = 3
+    model  = Discriminator(3, 4, 64, 256)
+    

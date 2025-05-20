@@ -5,7 +5,16 @@ import random
 import cv2
 
 from torch.utils.data import Dataset
+import os 
+import sys 
+# 获取当前脚本的目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
+# 获取当前脚本所在路径的上层目录
+parent_dir = os.path.dirname(current_dir)
+print(f'current_dir: {current_dir} parent_dir: {parent_dir}')
+sys.path.append(parent_dir)
+from config.config import DINetTrainingOptions
 
 def get_data(json_name,augment_num):
     print('start loading data')
@@ -72,5 +81,21 @@ class DINetDataset(Dataset):
 
     def __len__(self):
         return self.length
+
+if __name__ == '__main__':
+   
+    opt = DINetTrainingOptions().parse_args()
+   
+    # load training data in memory
+    train_data = DINetDataset(opt.train_data,opt.augment_num,opt.mouth_region_size)
+    source_image_data,source_image_mask, reference_clip_data,deepspeech_feature = train_data.__getitem__(0)
+   
+    print(f'source_image_data shape: {source_image_data.shape}')
+    print(f'source_image_mask shape: {source_image_mask.shape}')
+    print(f'reference_clip_data shape: {reference_clip_data.shape}')
+    print(f'deepspeech_feature shape: {deepspeech_feature.shape}')
+    cv2.imwrite('./asserts/tmp/source_img.jpg', source_image_data.permute(1,2,0).numpy() * 255)
+    cv2.imwrite('./asserts/tmp/source_img_mask.jpg', source_image_mask.permute(1, 2, 0).numpy() * 255)
+    cv2.imwrite('./asserts/tmp/ref_clip.jpg', reference_clip_data.permute(1,2,0).numpy() * 255)
 
 

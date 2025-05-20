@@ -1,6 +1,7 @@
 import csv
 import numpy as np
 import random
+import json 
 
 
 def load_landmark_openface(csv_path):
@@ -23,6 +24,17 @@ def load_landmark_openface(csv_path):
     landmark_array = np.stack([x_array,y_array],2)
     return landmark_array
 
+def load_landmark_dlib(json_path):
+    landmark_list = []
+    with open(json_path, 'r') as f:
+        json_dict = json.load(f)
+    
+    for key, landmarks in json_dict:
+        landmark_list.append(landmarks)
+    landmarks_array = np.concatenate(landmark_list, axis=0)
+    return landmarks_array
+
+
 
 def compute_crop_radius(video_size,landmark_data_clip,random_scale = None):
     '''
@@ -38,7 +50,7 @@ def compute_crop_radius(video_size,landmark_data_clip,random_scale = None):
     radius_w = (landmark_data_clip[:,54, 0] - landmark_data_clip[:,48, 0]) * random_scale
     radius_clip = np.max(np.stack([radius_h, radius_w],1),1) // 2
     radius_max = np.max(radius_clip)
-    radius_max = (np.int(radius_max/4) + 1 ) * 4
+    radius_max = (np.int32(radius_max/4) + 1 ) * 4
     radius_max_1_4 = radius_max//4
     clip_min_h = landmark_data_clip[:, 29,
                  1] - radius_max
@@ -58,3 +70,12 @@ def compute_crop_radius(video_size,landmark_data_clip,random_scale = None):
         return False, None
     else:
         return True,radius_max
+
+
+
+
+if __name__ == "__main__":
+    csv_path = './asserts/training_data/split_video_25fps_landmark_openface/BobCorker_0.csv'
+    landmarks_array = load_landmark_openface(csv_path)
+    print(f'landmarks_array: {landmarks_array.shape} {landmarks_array.dtype}')
+    

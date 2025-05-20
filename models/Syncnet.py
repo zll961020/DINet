@@ -1,5 +1,14 @@
 import torch
 from torch import nn
+import os
+import sys
+# 获取当前脚本的绝对路径
+current_script_path = os.path.abspath(__file__)
+# 获取项目根目录（假设Syncnet.py在models目录下，所以向上两级）
+project_root = os.path.dirname(os.path.dirname(current_script_path))
+print(f'current_script_path: {current_script_path} project_root: {project_root}')
+sys.path.append(project_root)
+
 class ResBlock1d(nn.Module):
     '''
         basic block (no BN)
@@ -212,4 +221,40 @@ class SyncNetPerception(nn.Module):
     def forward(self, image,audio):
         score = self.model(image,audio)
         return score
+    
+if __name__ == '__main__':
+    model = SyncNet(15, 29, 128)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+    #pretrain_path = os.path.join(project_root, 'asserts/training_model_weight/frame_training_64/netG_model_epoch_46.pth')
+    pretrain_path = os.path.join(project_root, 'asserts/syncnet_64mouth.pth')
+    model.load_state_dict(torch.load(pretrain_path, map_location=device)['state_dict']['net'])
+    model.eval()
+    imgs = torch.randn(1, 15, 64, 64)
+    audio = torch.randn(1, 29, 9)
+    out = model(imgs,audio)
+    print(f'out shape: {out.shape}')
 
+    model2 = SyncNet(15, 29, 128)
+   
+    model2 = model2.to(device)
+    #pretrain_path = os.path.join(project_root, 'asserts/training_model_weight/frame_training_64/netG_model_epoch_46.pth')
+    pretrain_path2 = os.path.join(project_root, 'asserts/syncnet_128mouth.pth')
+    model2.load_state_dict(torch.load(pretrain_path2, map_location=device)['state_dict']['net'])
+    model2.eval()
+    imgs2 = torch.randn(1, 15, 128, 128)
+    audio2 = torch.randn(1, 29, 9)
+    out2 = model2(imgs2,audio2)
+    print(f'out2 shape: {out2.shape}')
+
+    model3 = SyncNet(15, 29, 128)
+   
+    model3 = model3.to(device)
+    #pretrain_path = os.path.join(project_root, 'asserts/training_model_weight/frame_training_64/netG_model_epoch_46.pth')
+    pretrain_path3 = os.path.join(project_root, 'asserts/syncnet_256mouth.pth')
+    model3.load_state_dict(torch.load(pretrain_path3, map_location=device)['state_dict']['net'])
+    model3.eval()
+    imgs3 = torch.randn(1, 15, 256, 256)
+    audio3 = torch.randn(1, 29, 9)
+    out3 = model2(imgs3,audio3)
+    print(f'out3 shape: {out3.shape}')

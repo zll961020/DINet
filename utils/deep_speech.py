@@ -19,9 +19,9 @@ class DeepSpeech():
             graph_def.ParseFromString(f.read())
         graph = tf.compat.v1.get_default_graph()
         tf.import_graph_def(graph_def, name="deepspeech")
-        logits_ph = graph.get_tensor_by_name("deepspeech/logits:0")
-        input_node_ph = graph.get_tensor_by_name("deepspeech/input_node:0")
-        input_lengths_ph = graph.get_tensor_by_name("deepspeech/input_lengths:0")
+        logits_ph = graph.get_tensor_by_name("logits:0")
+        input_node_ph = graph.get_tensor_by_name("input_node:0")
+        input_lengths_ph = graph.get_tensor_by_name("input_lengths:0")
 
         return graph, logits_ph, input_node_ph, input_lengths_ph
 
@@ -72,11 +72,11 @@ class DeepSpeech():
             audio = audio[:, 0]
         if audio_sample_rate != self.target_sample_rate:
             resampled_audio = resampy.resample(
-                x=audio.astype(np.float),
+                x=audio.astype(np.float64),
                 sr_orig=audio_sample_rate,
                 sr_new=self.target_sample_rate)
         else:
-            resampled_audio = audio.astype(np.float)
+            resampled_audio = audio.astype(np.float64)
         with tf.compat.v1.Session(graph=self.graph) as sess:
             input_vector = self.conv_audio_to_deepspeech_input_vector(
                 audio=resampled_audio.astype(np.int16),

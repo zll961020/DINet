@@ -4,6 +4,15 @@ import torch.nn.functional as F
 import math
 import cv2
 import numpy as np
+import os
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 获取当前脚本所在路径的上层目录
+parent_dir = os.path.dirname(current_dir)
+
+sys.path.append(parent_dir)
+# from config.config import DINetTrainingOptions
 from sync_batchnorm import SynchronizedBatchNorm2d as BatchNorm2d
 from sync_batchnorm import SynchronizedBatchNorm1d as BatchNorm1d
 
@@ -294,6 +303,21 @@ class DINet(nn.Module):
         merge_feature = torch.cat([source_in_feature,ref_trans_feature],1)
         out = self.out_conv(merge_feature)
         return out
+
+
+if __name__ == '__main__':
+    model = DINet(3,15,29)
+    source_img = torch.randn(1, 3, 104, 80)
+    ref_img = torch.randn(1, 15, 104, 80)
+    audio_feature = torch.randn(1, 29, 5)
+    out = model(source_img,ref_img,audio_feature)
+    print(f'out: {out.shape}')
+
+    source_img2 = torch.randn(1, 3, 208, 160)
+    ref_img2 = torch.randn(1, 15, 208, 160)
+    audio_feature2 = torch.randn(1, 29, 5)
+    out2 = model(source_img2,ref_img2,audio_feature2)
+    print(f'out: {out2.shape}')
 
 
 

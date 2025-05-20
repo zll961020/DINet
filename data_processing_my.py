@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import json
 
-from utils.data_processing import load_landmark_openface,compute_crop_radius
+from utils.data_processing import load_landmark_openface,compute_crop_radius, load_landmark_dlib
 from utils.deep_speech import DeepSpeech
 from config.config import DataProcessingOptions
 
@@ -17,9 +17,11 @@ def extract_audio(source_video_dir,res_audio_dir):
         raise ('wrong path of video dir')
     if not os.path.exists(res_audio_dir):
         os.mkdir(res_audio_dir)
-    video_path_list = glob.glob(os.path.join(source_video_dir, '*.mp4'))
+    video_path_list = glob.glob(os.path.join(source_video_dir, '*/*.[mM][pP]4'))
     for video_path in video_path_list:
         print('extract audio from video: {}'.format(os.path.basename(video_path)))
+        dirname = video_path.split('/')[-2]
+        os.makedirs(os.path.join(res_audio_dir, dirname), exist_ok=True)
         audio_path = os.path.join(res_audio_dir, os.path.basename(video_path).replace('.mp4', '.wav'))
         cmd = 'ffmpeg -i {} -f wav -ar 16000 {}'.format(video_path, audio_path)
         subprocess.call(cmd, shell=True)
@@ -31,10 +33,12 @@ def extract_deep_speech(audio_dir,res_deep_speech_dir,deep_speech_model_path):
     if not os.path.exists(res_deep_speech_dir):
         os.mkdir(res_deep_speech_dir)
     DSModel = DeepSpeech(deep_speech_model_path)
-    wav_path_list = glob.glob(os.path.join(audio_dir, '*.wav'))
+    wav_path_list = glob.glob(os.path.join(audio_dir, '*/*.wav'))
     for wav_path in wav_path_list:
         video_name = os.path.basename(wav_path).replace('.wav', '')
-        res_dp_path = os.path.join(res_deep_speech_dir, video_name + '_deepspeech.txt')
+        dirname = wav_path.split('/')[-2]
+        os.makedirs(os.path.join(res_deep_speech_dir, dirname), exist_ok=True)
+        res_dp_path = os.path.join(res_deep_speech_dir, dirname, video_name + '_deepspeech.txt')
         if os.path.exists(res_dp_path):
             os.remove(res_dp_path)
         print('extract deep speech feature from audio:{}'.format(video_name))
@@ -49,10 +53,12 @@ def extract_video_frame(source_video_dir,res_video_frame_dir):
         raise ('wrong path of video dir')
     if not os.path.exists(res_video_frame_dir):
         os.mkdir(res_video_frame_dir)
-    video_path_list = glob.glob(os.path.join(source_video_dir, '*.mp4'))
+    video_path_list = glob.glob(os.path.join(source_video_dir, '*/*.[mM][pP]4'))
     for video_path in video_path_list:
         video_name = os.path.basename(video_path)
-        frame_dir = os.path.join(res_video_frame_dir, video_name.replace('.mp4', ''))
+        dirname = video_path.split('/')[-2]
+        os.makedirs(os.path.join(res_video_frame_dir, dirname), exist_ok=True)
+        frame_dir = os.path.join(res_video_frame_dir, dirname, video_name.replace('.mp4', ''))
         if not os.path.exists(frame_dir):
             os.makedirs(frame_dir)
         print('extracting frames from {} ...'.format(video_name))
@@ -85,7 +91,6 @@ def crop_face_according_openfaceLM(openface_landmark_dir,video_frame_dir,res_cro
             os.makedirs(crop_face_video_dir)
         print('cropping face from video: {} ...'.format(video_name))
         landmark_openface_data = load_landmark_openface(landmark_openface_path).astype(np.int32)
-        print(f'landmark openface data: {landmark_openface_data.shape}')
         frame_dir = os.path.join(video_frame_dir, video_name)
         if not os.path.exists(frame_dir):
             raise ('run last step to extract video frame')
@@ -122,6 +127,61 @@ def crop_face_according_openfaceLM(openface_landmark_dir,video_frame_dir,res_cro
                     os.remove(res_crop_face_frame_path)
                 cv2.imwrite(res_crop_face_frame_path, crop_face_data)
 
+
+def crop_face_according_dlib(dlib_landmark_dir, video_frame_dir,res_crop_face_dir,clip_length):
+
+    '''
+      crop face according to dlib landmark
+    '''
+    if not os.path.exists(dlib_landmark_dir):
+        raise ('wrong path of dlib landmark dir')
+    if not os.path.exists(video_frame_dir):
+        raise ('wrong path of video frame dir')
+    if not os.path.exists(res_crop_face_dir):
+        os.mkdir(res_crop_face_dir)
+    landmark_dlib_path_list = glob.glob(os.path.join(dlib_landmark_dir, '*/*.json'))
+    for landmark_dlib_path in landmark_dlib_path_list:
+        video_name = os.path.basename(landmark_dlib_path).replace('.json', '')
+        crop_face_video_dir = os.path.join(res_crop_face_dir, video_name)
+        if not os.path.exists(crop_face_video_dir):
+            os.makedirs(crop_face_video_dir)
+        print('cropping face from video: {} ...'.format(video_name))
+        landmark_dlib_data = load_landmark_dlib(landmark_dlib_path).astype(np.int32)
+        frame_dir = os.path.join(video_frame_dir, video_name)
+        if not os.path.exists(frame_dir):
+            raise ('run last step to extract video frame')
+        if len(glob.glob(os.path.join(frame_dir, '*.jpg'))) != landmark_dlib_data.shape[0]:
+            # 要求每一帧都检测到人脸 
+            raise ('landmark length is different from frame length')
+        frame_length = min(len(glob.glob(os.path.join(frame_dir, '*.jpg'))), landmark_dlib_data.shape[0])
+        end_frame_index = list(range(clip_length, frame_length, clip_length))
+        video_clip_num = len(end_frame_index)
+        for i in range(video_clip_num):
+            first_image = cv2.imread(os.path.join(frame_dir, '000000.jpg'))
+            video_h,video_w = first_image.shape[0], first_image.shape[1]
+            crop_flag, radius_clip = compute_crop_radius((video_w,video_h),
+                                    landmark_dlib_data[end_frame_index[i] - clip_length:end_frame_index[i], :,:])
+            if not crop_flag:
+                continue
+            radius_clip_1_4 = radius_clip // 4
+            print('cropping {}/{} clip from video:{}'.format(i, video_clip_num, video_name))
+            res_face_clip_dir = os.path.join(crop_face_video_dir, str(i).zfill(6))
+            if not os.path.exists(res_face_clip_dir):
+                os.mkdir(res_face_clip_dir)
+            for frame_index in range(end_frame_index[i]- clip_length,end_frame_index[i]):
+                source_frame_path = os.path.join(frame_dir,str(frame_index).zfill(6)+'.jpg')
+                source_frame_data = cv2.imread(source_frame_path)
+                frame_landmark = landmark_dlib_data[frame_index, :, :]
+                crop_face_data = source_frame_data[
+                                    frame_landmark[29, 1] - radius_clip:frame_landmark[
+                                                                            29, 1] + radius_clip * 2 + radius_clip_1_4,
+                                    frame_landmark[33, 0] - radius_clip - radius_clip_1_4:frame_landmark[
+                                                                                              33, 0] + radius_clip + radius_clip_1_4,
+                                    :].copy()
+                res_crop_face_frame_path = os.path.join(res_face_clip_dir, str(frame_index).zfill(6) + '.jpg')
+                if os.path.exists(res_crop_face_frame_path):
+                    os.remove(res_crop_face_frame_path)
+                cv2.imwrite(res_crop_face_frame_path, crop_face_data)
 
 def generate_training_json(crop_face_dir,deep_speech_dir,clip_length,res_json_path):
     video_name_list = os.listdir(crop_face_dir)

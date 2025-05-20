@@ -119,10 +119,15 @@ if __name__ == "__main__":
             # # gan dV loss
             loss_g_dV = criterionGAN(pred_fake_dV, True)
             ## sync perception loss
+           
             fake_out_clip = torch.cat(torch.split(fake_out, opt.batch_size, dim=0), 1)
             fake_out_clip_mouth = fake_out_clip[:, :, train_data.radius:train_data.radius + train_data.mouth_region_size,
             train_data.radius_1_4:train_data.radius_1_4 + train_data.mouth_region_size]
+            print(f'fake out: {fake_out.shape} fake_out_clip: {fake_out_clip.shape}')
+            print(f'fake_out_clip_mouth shape: {fake_out_clip_mouth.shape} deep_speech_full shape: {deep_speech_full.shape}')
+            
             sync_score = net_lipsync(fake_out_clip_mouth, deep_speech_full)
+            print(f'sync_score: {sync_score.shape} real_tensor: {real_tensor.shape} {real_tensor.expand_as(sync_score).shape}')
             loss_sync = criterionMSE(sync_score, real_tensor.expand_as(sync_score)) * opt.lamb_syncnet_perception
             # combine all losses
             loss_g =   loss_g_perception + loss_g_dI +loss_g_dV + loss_sync
